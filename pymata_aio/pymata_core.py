@@ -21,8 +21,8 @@ import glob
 import logging
 import sys
 import time
-
 import serial
+import collections
 
 from .constants import Constants
 from .pin_data import PinData
@@ -120,7 +120,10 @@ class PymataCore:
                                    PrivateConstants.ENCODER_DATA:
                                        self._encoder_data,
                                    PrivateConstants.PIXY_DATA:
-                                       self._pixy_data}
+                                       self._pixy_data,
+                                    PrivateConstants.CBAN:
+                                        self._cban_reply}
+
 
         # report query results are stored in this dictionary
         self.query_reply_data = {PrivateConstants.REPORT_VERSION: '',
@@ -240,6 +243,9 @@ class PymataCore:
 
         # set up signal handler for controlC
         self.loop = asyncio.get_event_loop()
+
+        # common bus addressable node reply
+        self.cban_reply_dict = collections.defaultdict(set)
 
     def start(self):
         """
@@ -464,7 +470,7 @@ class PymataCore:
         """
         if PrivateConstants.ANALOG_MESSAGE + pin < 0xf0:
             command = [PrivateConstants.ANALOG_MESSAGE + pin, value & 0x7f,
-                       (value >> 7) & 0x7f]
+                       value >> 7]
             await self._send_command(command)
         else:
             await self.extended_analog(pin, value)
@@ -501,7 +507,7 @@ class PymataCore:
         # Assemble the command
         command = (calculated_command,
                    PrivateConstants.DIGITAL_OUTPUT_PORT_PINS[port] & 0x7f,
-                   (PrivateConstants.DIGITAL_OUTPUT_PORT_PINS[port] >> 7) & 0x7f)
+                   PrivateConstants.DIGITAL_OUTPUT_PORT_PINS[port] >> 7)
 
         await self._send_command(command)
 
@@ -606,7 +612,7 @@ class PymataCore:
         :param data: 0 - 0xfffff
         :returns: No return value
         """
-        analog_data = [pin, data & 0x7f, (data >> 7) & 0x7f, (data >> 14) & 0x7f]
+        analog_data = [pin, data & 0x7f, (data >> 7) & 0x7f, data >> 14]
         await self._send_sysex(PrivateConstants.EXTENDED_ANALOG, analog_data)
 
     async def get_analog_latch_data(self, pin):
@@ -752,7 +758,7 @@ class PymataCore:
                                                   default is 0
         :returns: No Return Value
         """
-        data = [read_delay_time & 0x7f, (read_delay_time >> 7) & 0x7f]
+        data = [read_delay_time & 0x7f, read_delay_time >> 7]
         await self._send_sysex(PrivateConstants.I2C_CONFIG, data)
 
     async def i2c_read_data(self, address):
@@ -796,8 +802,8 @@ class PymataCore:
             # self.i2c_map[address] = [None, cb]
             self.i2c_map[address] = {'value': None, 'callback': cb,
                                      'callback_type': cb_type}
-        data = [address, read_type, register & 0x7f, (register >> 7) & 0x7f,
-                number_of_bytes & 0x7f, (number_of_bytes >> 7) & 0x7f]
+        data = [address, read_type, register & 0x7f, register >> 7,
+                number_of_bytes & 0x7f, number_of_bytes >> 7]
         await self._send_sysex(PrivateConstants.I2C_REQUEST, data)
 
     async def i2c_write_request(self, address, args):
@@ -813,7 +819,7 @@ class PymataCore:
         for item in args:
             item_lsb = item & 0x7f
             data.append(item_lsb)
-            item_msb = (item >> 7) & 0x7f
+            item_msb = item >> 7
             data.append(item_msb)
         await self._send_sysex(PrivateConstants.I2C_REQUEST, data)
 
@@ -838,7 +844,7 @@ class PymataCore:
         if margin > .9:
             margin = .9
         self.margin = margin
-        self.keep_alive_interval = [period & 0x7f, (period >> 7) & 0x7f]
+        self.keep_alive_interval = [period & 0x7f, period >> 7]
         await self._send_sysex(PrivateConstants.SAMPLING_INTERVAL,
                                self.keep_alive_interval)
         while True:
@@ -868,12 +874,12 @@ class PymataCore:
         if tone_command == Constants.TONE_TONE:
             # duration is specified
             if duration:
-                data = [tone_command, pin, frequency & 0x7f, (frequency >> 7) & 0x7f,
-                        duration & 0x7f, (duration >> 7) & 0x7f]
+                data = [tone_command, pin, frequency & 0x7f, frequency >> 7,
+                        duration & 0x7f, duration >> 7]
 
             else:
                 data = [tone_command, pin,
-                        frequency & 0x7f, (frequency >> 7) & 0x7f, 0, 0]
+                        frequency & 0x7f, frequency >> 7, 0, 0]
         # turn off tone
         else:
             data = [tone_command, pin]
@@ -901,8 +907,8 @@ class PymataCore:
         :param max_pulse: Max pulse width in ms.
         :returns: No return value
         """
-        command = [pin, min_pulse & 0x7f, (min_pulse >> 7) & 0x7f, max_pulse & 0x7f,
-                   (max_pulse >> 7) & 0x7f]
+        command = [pin, min_pulse & 0x7f, min_pulse >> 7, max_pulse & 0x7f,
+                   max_pulse >> 7]
 
         await self._send_sysex(PrivateConstants.SERVO_CONFIG, command)
 
@@ -1019,7 +1025,7 @@ class PymataCore:
                          in milliseconds
         :returns: No return value.
         """
-        data = [interval & 0x7f, (interval >> 7) & 0x7f]
+        data = [interval & 0x7f, interval >> 7]
         await self._send_sysex(PrivateConstants.SAMPLING_INTERVAL, data)
 
     async def shutdown(self):
@@ -1092,11 +1098,11 @@ class PymataCore:
         if max_distance > 200:
             max_distance = 200
         max_distance_lsb = max_distance & 0x7f
-        max_distance_msb = (max_distance >> 7) & 0x7f
+        max_distance_msb = max_distance >> 7
         data = [trigger_pin, echo_pin, ping_interval, max_distance_lsb,
                 max_distance_msb]
-        await self.set_pin_mode(trigger_pin, Constants.SONAR, Constants.INPUT)
-        await self.set_pin_mode(echo_pin, Constants.SONAR, Constants.INPUT)
+        self.set_pin_mode(trigger_pin, Constants.SONAR, Constants.INPUT)
+        self.set_pin_mode(echo_pin, Constants.SONAR, Constants.INPUT)
         # update the ping data map for this pin
         if len(self.active_sonar_map) > 6:
             if self.log_output:
@@ -1136,7 +1142,7 @@ class PymataCore:
         :returns: No return value.
         """
         data = [PrivateConstants.STEPPER_CONFIGURE, steps_per_revolution & 0x7f,
-                (steps_per_revolution >> 7) & 0x7f]
+                steps_per_revolution >> 7]
         for pin in range(len(stepper_pins)):
             data.append(stepper_pins[pin])
         await self._send_sysex(PrivateConstants.STEPPER_DATA, data)
@@ -1157,8 +1163,8 @@ class PymataCore:
             direction = 0
         abs_number_of_steps = abs(number_of_steps)
         data = [PrivateConstants.STEPPER_STEP, motor_speed & 0x7f,
-                (motor_speed >> 7) & 0x7f, (motor_speed >> 14) & 0x7f,
-                abs_number_of_steps & 0x7f, (abs_number_of_steps >> 7) & 0x7f, direction]
+                (motor_speed >> 7) & 0x7f, motor_speed >> 14,
+                abs_number_of_steps & 0x7f, abs_number_of_steps >> 7, direction]
         await self._send_sysex(PrivateConstants.STEPPER_DATA, data)
 
     async def pixy_init(self, max_blocks=5, cb=None, cb_type=None):
@@ -1199,7 +1205,7 @@ class PymataCore:
         :param brightness: range between 0 and 255 with 255 being the brightest setting
         :returns: No return value.
         """
-        data = [PrivateConstants.PIXY_SET_BRIGHTNESS, brightness & 0x7f, (brightness >> 7) & 0x7f]
+        data = [PrivateConstants.PIXY_SET_BRIGHTNESS, brightness & 0x7f, brightness >> 7]
         await self._send_sysex(PrivateConstants.PIXY_CONFIG, data)
 
     async def pixy_set_led(self, r, g, b):
@@ -1212,9 +1218,43 @@ class PymataCore:
         :param b: blue range between 0 and 255
         :returns: No return value.
         """
-        data = [PrivateConstants.PIXY_SET_LED, r & 0x7f, (r >> 7) & 0x7f, g & 0x7f, (g >> 7) & 0x7f, b & 0x7f,
-                (b >> 7) & 0x7f]
+        data = [PrivateConstants.PIXY_SET_LED, r & 0x7f, r >> 7, g & 0x7f, g >> 7, b & 0x7f, b >> 7]
         await self._send_sysex(PrivateConstants.PIXY_CONFIG, data)
+
+    async def cban_add_reply_callback(self, id, callback):
+        """
+        Add callback common bus addressable node reply callback dict
+
+        :param id: id for point
+        :param callback: function called when reply comes with corresponding id
+        :returns: No return value.
+        """
+        self.cban_reply_dict[id].add(callback)
+
+
+    async def cban_get(self, id):
+        """
+        Send id to common bus addressable nodes get method
+
+        :param id: id in get method
+        :returns: No return value.
+        """
+        s = id;
+        data = [Constants.CBAN_GET] + [ord(c) for c in s]
+        await self._send_sysex(PrivateConstants.CBAN, data)
+
+    async def cban_set(self, id, value):
+        """
+        Send id & value to common bus addressable nodes set method
+
+        :param id: id in set method
+        :param value: value in set method
+        :returns: No return value.
+        """
+        s = id + ':' + str(value);
+        data = [Constants.CBAN_SET] + [ord(c) for c in s]
+        await self._send_sysex(PrivateConstants.CBAN, data)
+
 
     async def _command_dispatcher(self):
         """
@@ -1437,6 +1477,25 @@ class PymataCore:
                 loop = self.loop
                 loop.call_soon(self.digital_pins[PrivateConstants.PIN_PIXY_MOSI].cb, blocks)
 
+    async def _cban_reply(self, data):
+        """
+        This is a private message handler method.
+        It receives the string returned from a get method on microcontroller
+
+        :param data: raw data returned from get method
+        :returns: None - but update is saved in the digital pins structure
+        """  
+
+        # parse data object
+        data = data[1:-1] # strip off sysex start & end
+        reply = "".join(map(chr, data))
+        id, val = reply.split(':')
+
+        # call callback linked to id
+        for callback in self.cban_reply_dict.get(id, []):
+            callback(val)
+
+
     async def _i2c_reply(self, data):
         """
         This is a private message handler method.
@@ -1561,30 +1620,25 @@ class PymataCore:
         pin_number = data[0]
         val = int((data[PrivateConstants.MSB] << 7) +
                   data[PrivateConstants.LSB])
-        reply_data = []
 
         sonar_pin_entry = self.active_sonar_map[pin_number]
 
         if sonar_pin_entry[0] is not None:
             # check if value changed since last reading
-            if sonar_pin_entry[2] != val:
-                sonar_pin_entry[2] = val
+            if sonar_pin_entry[1] != val:
+                sonar_pin_entry[1] = val
                 self.active_sonar_map[pin_number] = sonar_pin_entry
                 # Do a callback if one is specified in the table
                 if sonar_pin_entry[0]:
-                    # if this is an asyncio callback type
-                    reply_data.append(pin_number)
-                    reply_data.append(val)
                     if sonar_pin_entry[1]:
-                        await sonar_pin_entry[0](reply_data)
+                        await sonar_pin_entry[0]([pin_number, val])
                     else:
                         # sonar_pin_entry[0]([pin_number, val])
                         loop = self.loop
-                        loop.call_soon(sonar_pin_entry[0], reply_data)
+                        loop.call_soon(sonar_pin_entry[0], pin_number, val)
         # update the data in the table with latest value
-        else:
-            sonar_pin_entry[1] = val
-            self.active_sonar_map[pin_number] = sonar_pin_entry
+        # sonar_pin_entry[1] = val
+        self.active_sonar_map[pin_number] = sonar_pin_entry
 
         await asyncio.sleep(self.sleep_tune)
 
@@ -1608,7 +1662,7 @@ class PymataCore:
             print(reply)
 
     '''
-    utilities
+    utils
     '''
 
     async def _check_latch_data(self, key, data):
@@ -1735,7 +1789,7 @@ class PymataCore:
                 while data[x] != 127:
                     mode_str = ""
                     pin_mode = pin_modes.get(data[x])
-                    mode_str += str(pin_mode)
+                    mode_str += pin_mode
                     x += 1
                     bits = data[x]
                     print('{:>5}{}{} {}'.format('  ', mode_str, ':', bits))
@@ -1833,3 +1887,4 @@ class PymataCore:
             current_command.append(next_command_byte)
             number_of_bytes -= 1
         return current_command
+

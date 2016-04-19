@@ -46,8 +46,9 @@ class PrivateConstants:
     SONAR_DATA = 0x63  # distance data returned
     PIXY_CONFIG = 0x64  # configure the Pixy.  Configure has 4 subcommands
     PIXY_DATA = 0x65  # blocks data returned
-    # end of FirmataPlus defined SYSEX commands
 
+    # end of FirmataPlus defined SYSEX commands
+    CBAN = 0x68 # send to common bus addressable nodes
     SERVO_CONFIG = 0x70  # set servo pin and max and min angles
     STRING_DATA = 0x71  # a string message with 14-bits per char
     STEPPER_DATA = 0x72  # Stepper motor command
@@ -70,7 +71,7 @@ class PrivateConstants:
     SYSEX_REALTIME = 0x7F  # MIDI Reserved for realtime messages
 
     # reserved for PyMata
-    PYMATA_VERSION = "2.11"
+    PYMATA_VERSION = "2.8"
 
     # each byte represents a digital port
     #  and its value contains the current port settings

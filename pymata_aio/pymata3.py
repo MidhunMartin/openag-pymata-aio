@@ -670,3 +670,38 @@ class PyMata3:
         """
         task = asyncio.ensure_future(self.core.pixy_set_led(r, g, b))
         self.loop.run_until_complete(task)
+
+    def cban_add_reply_callback(self, id, callback):
+        """
+        Add callback common bus addressable node reply callback dict
+
+        :param id: id for point
+        :param callback: function called when reply comes with corresponding id
+        :returns: No return value.
+        """
+        task = asyncio.ensure_future(self.core.cban_add_reply_callback(id, callback))
+        self.loop.run_until_complete(task)
+
+
+    def cban_get(self, id):
+        """
+        Send id to common bus addressable nodes get methods
+
+        :param id: id for get method
+        :returns: No return value.
+        """  
+        task = asyncio.ensure_future(self.core.cban_get(id))
+        self.loop.run_until_complete(task)
+
+    def cban_set(self, id, value):
+        """
+        Send id & value to common bus addressable nodes set methods
+        :param id: id in set method
+        :param value: value in set method
+        :returns: No return value.
+        """ 
+        task = asyncio.ensure_future(self.core.cban_set(id, value))
+        self.loop.run_until_complete(task)
+
+
+

@@ -87,3 +87,7 @@ class Constants:
     LATCH_CALL_BACK_PIN = 0
     LATCH_CALL_BACK_DATA = 1
     LATCH_CALLBACK_TIME_STAMP = 2
+
+    # common bus addressable node constants
+    CBAN_SET = 0
+    CBAN_GET = 1
