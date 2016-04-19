@@ -1,9 +1,9 @@
 from setuptools import setup
 
 setup(
-    name='pymata-aio',
+    name='openag-pymata-aio',
     version='2.11',
-    packages=['pymata_aio'],
+    packages=['openag-pymata_aio'],
     install_requires=['pyserial>=2.7', 'autobahn[asyncio]>=0.10.4'],
     url='https://github.com/MrYsLab/pymata-aio/wiki',
     download_url='https://github.com/MrYsLab/pymata-aio',
