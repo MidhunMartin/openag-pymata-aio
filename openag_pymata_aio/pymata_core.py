@@ -245,7 +245,7 @@ class PymataCore:
         self.loop = asyncio.get_event_loop()
 
         # common bus addressable node reply
-        self.cban_reply_dict = collections.defaultdict(set)
+        self._cban_results = {}
 
     def start(self):
         """
@@ -1221,17 +1221,6 @@ class PymataCore:
         data = [PrivateConstants.PIXY_SET_LED, r & 0x7f, r >> 7, g & 0x7f, g >> 7, b & 0x7f, b >> 7]
         await self._send_sysex(PrivateConstants.PIXY_CONFIG, data)
 
-    async def cban_add_reply_callback(self, id, callback):
-        """
-        Add callback common bus addressable node reply callback dict
-
-        :param id: id for point
-        :param callback: function called when reply comes with corresponding id
-        :returns: No return value.
-        """
-        self.cban_reply_dict[id].add(callback)
-
-
     async def cban_get(self, id):
         """
         Send id to common bus addressable nodes get method
@@ -1242,6 +1231,9 @@ class PymataCore:
         s = id;
         data = [Constants.CBAN_GET] + [ord(c) for c in s]
         await self._send_sysex(PrivateConstants.CBAN, data)
+        result = asyncio.Future()
+        self._cban_results[id] = result
+        return await result
 
     async def cban_set(self, id, value):
         """
@@ -1484,16 +1476,13 @@ class PymataCore:
 
         :param data: raw data returned from get method
         :returns: None - but update is saved in the digital pins structure
-        """  
+        """
 
         # parse data object
         data = data[1:-1] # strip off sysex start & end
         reply = "".join(map(chr, data))
         id, val = reply.split(':')
-
-        # call callback linked to id
-        for callback in self.cban_reply_dict.get(id, []):
-            callback(val)
+        self._cban_results[id].set_result(val)
 
 
     async def _i2c_reply(self, data):
