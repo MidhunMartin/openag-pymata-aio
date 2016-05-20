@@ -1481,7 +1481,12 @@ class PymataCore:
         # parse data object
         data = data[1:-1] # strip off sysex start & end
         reply = "".join(map(chr, data))
-        id, key, val = reply.split(',')
+        items = reply.split(',')
+        id = items[0]
+        key = items[1]
+        val = ','.join(items[2:])
+        if val.startswith('(') and val.endswith(')'):
+            val = val[1:-1].split(',')
         self._cban_results.pop(id + ',' + key).set_result(val)
 
 
