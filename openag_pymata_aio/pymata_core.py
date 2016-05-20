@@ -1221,21 +1221,21 @@ class PymataCore:
         data = [PrivateConstants.PIXY_SET_LED, r & 0x7f, r >> 7, g & 0x7f, g >> 7, b & 0x7f, b >> 7]
         await self._send_sysex(PrivateConstants.PIXY_CONFIG, data)
 
-    async def cban_get(self, id):
+    async def cban_get(self, id, key):
         """
         Send id to common bus addressable nodes get method
 
         :param id: id in get method
-        :returns: No return value.
+        :returns: The value associated with the given id and key
         """
-        s = id;
+        s = id + ',' + key
         data = [Constants.CBAN_GET] + [ord(c) for c in s]
         await self._send_sysex(PrivateConstants.CBAN, data)
         result = asyncio.Future()
-        self._cban_results[id] = result
+        self._cban_results[s] = result
         return await result
 
-    async def cban_set(self, id, value):
+    async def cban_set(self, id, key, value):
         """
         Send id & value to common bus addressable nodes set method
 
@@ -1243,7 +1243,7 @@ class PymataCore:
         :param value: value in set method
         :returns: No return value.
         """
-        s = id + ':' + str(value);
+        s = id + ',' + key + ',' + str(value)
         data = [Constants.CBAN_SET] + [ord(c) for c in s]
         await self._send_sysex(PrivateConstants.CBAN, data)
 
@@ -1481,8 +1481,8 @@ class PymataCore:
         # parse data object
         data = data[1:-1] # strip off sysex start & end
         reply = "".join(map(chr, data))
-        id, val = reply.split(':')
-        self._cban_results[id].set_result(val)
+        id, key, val = reply.split(',')
+        self._cban_results.pop(id + ',' + key).set_result(val)
 
 
     async def _i2c_reply(self, data):

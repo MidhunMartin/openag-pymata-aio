@@ -671,24 +671,24 @@ class PyMata3:
         task = asyncio.ensure_future(self.core.pixy_set_led(r, g, b))
         self.loop.run_until_complete(task)
 
-    def cban_get(self, id):
+    def cban_get(self, id, key):
         """
         Send id to common bus addressable nodes get methods
 
         :param id: id for get method
         :returns: No return value.
         """
-        task = asyncio.ensure_future(self.core.cban_get(id))
+        task = asyncio.ensure_future(self.core.cban_get(id, key))
         return self.loop.run_until_complete(task)
 
-    def cban_set(self, id, value):
+    def cban_set(self, id, key, value):
         """
         Send id & value to common bus addressable nodes set methods
         :param id: id in set method
         :param value: value in set method
         :returns: No return value.
         """
-        task = asyncio.ensure_future(self.core.cban_set(id, value))
+        task = asyncio.ensure_future(self.core.cban_set(id, key, value))
         self.loop.run_until_complete(task)
 
 
